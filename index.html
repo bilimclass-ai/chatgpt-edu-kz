@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChatGPT Edu — University Rollout Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js"></script>
+<style>
+:root{
+  color-scheme: light;
+  --bg:#f4f1ff;--card:#ffffff;--ink:#1e1b3a;--muted:#6b6790;--line:#e7e3fb;
+  --violet:#6C5CE7;--violet2:#8b7bff;--pink:#ff5fa2;--coral:#ff6b6b;--orange:#ff9f43;
+  --amber:#ffd43b;--teal:#12d8b0;--green:#20c997;--blue:#4da8ff;
+  --shadow:0 10px 30px rgba(108,92,231,.12);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+  background:radial-gradient(1200px 500px at 10% -10%, #efeaff 0%, rgba(239,234,255,0) 60%),
+    radial-gradient(1000px 500px at 110% 0%, #ffe9f4 0%, rgba(255,233,244,0) 55%),var(--bg);color:var(--ink);}
+.wrap{max-width:1180px;margin:0 auto;padding:22px 20px 60px}
+header.top{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;
+  background:linear-gradient(120deg,var(--violet) 0%,#7a5cff 45%,var(--pink) 100%);
+  color:#fff;border-radius:22px;padding:22px 26px;box-shadow:var(--shadow);}
+header.top h1{margin:0;font-size:22px;letter-spacing:.2px}
+header.top p{margin:6px 0 0;opacity:.92;font-size:13.5px}
+.rightctrls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.reload{border:0;cursor:pointer;background:rgba(255,255,255,.2);color:#fff;font-weight:700;font-size:13px;padding:9px 14px;border-radius:12px}
+.reload:hover{background:rgba(255,255,255,.32)}
+.lang{display:flex;gap:6px;background:rgba(255,255,255,.18);padding:5px;border-radius:14px}
+.lang button{border:0;cursor:pointer;padding:8px 16px;border-radius:10px;font-weight:700;font-size:13px;background:transparent;color:#fff;transition:.15s;}
+.lang button.active{background:#fff;color:var(--violet)}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:22px 0}
+.kpi{background:var(--card);border-radius:18px;padding:18px 18px 16px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px}
+.kpi.k1::before{background:var(--violet)}.kpi.k2::before{background:var(--blue)}
+.kpi.k3::before{background:var(--teal)}.kpi.k4::before{background:var(--pink)}
+.kpi .val{font-size:30px;font-weight:800;line-height:1.05}
+.kpi .lab{color:var(--muted);font-size:13px;margin-top:6px}
+.kpi .sub{font-size:12px;margin-top:8px;font-weight:600}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.card{background:var(--card);border-radius:20px;padding:20px;box-shadow:var(--shadow);margin-top:18px}
+.card h2{margin:0 0 4px;font-size:17px}
+.card .hint{color:var(--muted);font-size:12.5px;margin:0 0 14px}
+.chartbox{position:relative;height:340px}
+.chartbox.tall{height:430px}
+select,input[type=text]{width:100%;padding:12px 14px;border-radius:12px;border:1.5px solid var(--line);font-size:14px;color:var(--ink);background:#fff;outline:none;}
+select:focus,input:focus{border-color:var(--violet2)}
+.spot{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:16px}
+.spotcard{border-radius:16px;padding:16px;color:#fff}
+.spotcard .n{font-size:26px;font-weight:800}
+.spotcard .t{font-size:12.5px;opacity:.95;margin-top:4px}
+.spot .s1{background:linear-gradient(135deg,#6C5CE7,#8b7bff)}
+.spot .s2{background:linear-gradient(135deg,#4da8ff,#12d8b0)}
+.spot .s3{background:linear-gradient(135deg,#ff9f43,#ffd43b);color:#4a3200}
+.spot .s4{background:linear-gradient(135deg,#ff5fa2,#ff6b6b)}
+.spotmeta{margin-top:14px;display:flex;flex-wrap:wrap;gap:10px 22px;font-size:13.5px;color:var(--muted)}
+.spotmeta b{color:var(--ink)}
+.badge{display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;color:#fff}
+.controls{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:12px}
+.controls .search{flex:1;min-width:220px}
+.tablewrap{overflow:auto;border-radius:14px;border:1px solid var(--line)}
+table{border-collapse:collapse;width:100%;font-size:13px;min-width:760px}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{background:#faf8ff;position:sticky;top:0;cursor:pointer;user-select:none;font-size:12px;color:var(--muted);z-index:1}
+th:hover{color:var(--violet)}
+td.name{white-space:normal;min-width:280px;font-weight:600}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+tr:hover td{background:#fbfaff}
+.pill{display:inline-block;min-width:64px;text-align:center;padding:4px 8px;border-radius:8px;color:#fff;font-weight:700;font-size:12px}
+.regionchip{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11.5px;font-weight:700;color:#fff}
+.note{color:var(--muted);font-size:12px;margin-top:14px;text-align:center}
+.loading{padding:60px;text-align:center;color:var(--muted);font-size:15px}
+.spinner{width:34px;height:34px;border:4px solid var(--line);border-top-color:var(--violet);border-radius:50%;margin:0 auto 14px;animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.errbox{background:#fff0f3;border:1px solid #ffc9d6;color:#8a2b45;padding:18px 20px;border-radius:14px;line-height:1.55}
+.errbox b{color:#b4234a}
+.errbox code{background:#fff;border:1px solid #ffd0dc;border-radius:6px;padding:1px 6px;font-size:12.5px}
+.srcbar{font-size:11.5px;color:var(--muted);text-align:center;margin-top:26px}
+.srcbar a{color:var(--violet);text-decoration:none}
+@media(max-width:860px){.kpis{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}.spot{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1 id="ttl"></h1>
+      <p id="sub"></p>
+    </div>
+    <div class="rightctrls">
+      <button class="reload" onclick="loadData()" id="reloadBtn">⟳</button>
+      <div class="lang">
+        <button data-l="kz" onclick="setLang('kz')">ҚАЗ</button>
+        <button data-l="ru" class="active" onclick="setLang('ru')">РУС</button>
+      </div>
+    </div>
+  </header>
+
+  <div id="app">
+    <div class="loading"><div class="spinner"></div><span id="loadtxt">Загрузка данных…</span></div>
+  </div>
+
+  <div class="srcbar" id="srcbar"></div>
+</div>
+
+<script>
+/* ============================================================
+   CONFIG — the dashboard reads THIS Google Sheet live over the web.
+   For the online page to load data, the sheet must be viewable by
+   "Anyone with the link" (Share → General access → Anyone with the link → Viewer),
+   OR published to the web (File → Share → Publish to web → CSV).
+   If you publish to web, paste that .../pub?output=csv link into PUBLISHED_CSV below.
+   ============================================================ */
+const SHEET_ID="1q3SkquUjRjqp3LHqT47zbWx9oWBne1N2z9fG5zBSMeU";
+const GID="0";
+const PUBLISHED_CSV="https://docs.google.com/spreadsheets/d/e/2PACX-1vS1CVX1xx2qx3YJXPhkgeHmhw4dNFIkBxTCFzOHj_RwYaXQBF0GOxIFfWExpeAmvj7Xwn0bZFqAVt9A/pub?output=csv"; // "Publish to web" CSV (primary source)
+const ENDPOINTS = PUBLISHED_CSV ? [PUBLISHED_CSV] : [
+  `https://docs.google.com/spreadsheets/d/e/2PACX-1vS1CVX1xx2qx3YJXPhkgeHmhw4dNFIkBxTCFzOHj_RwYaXQBF0GOxIFfWExpeAmvj7Xwn0bZFqAVt9A/pub?output=csv`,
+  `https://docs.google.com/spreadsheets/d/e/2PACX-1vS1CVX1xx2qx3YJXPhkgeHmhw4dNFIkBxTCFzOHj_RwYaXQBF0GOxIFfWExpeAmvj7Xwn0bZFqAVt9A/pub?output=csv`
+];
+
+/* ---------- i18n ---------- */
+const T={
+  ru:{
+    title:"ChatGPT Edu — Панель внедрения в вузах",
+    sub:"Живые данные из Google Таблицы. Каждый вуз видит своё положение и сравнение со средним по стране.",
+    loading:"Загрузка данных…",
+    universities:"Университетов",licenses:"Всего лицензий",activated:"Активировано аккаунтов",
+    national:"Средняя активация (по вузам)",overallRate:"Общий охват",started:"Начали",ofLicenses:"от лицензий",
+    regionTitle:"Активация по регионам",regionHint:"Общий охват по областям (активировано ÷ лицензии).",
+    rankTitle:"Лидеры и отстающие",rankHint:"Топ-12 и нижние-12 вузов по проценту активации.",
+    spotTitle:"Профиль университета",spotHint:"Выберите вуз, чтобы увидеть его показатели и место в рейтинге.",
+    selectPh:"Выберите университет…",
+    sLic:"Лицензий",sStarted:"Начали",sAct:"Активировано",sPct:"Активация",
+    rank:"Место по стране",of:"из",above:"выше среднего",below:"ниже среднего",
+    resp:"Отзывчивость",region:"Регион",district:"Район",
+    tableTitle:"Все университеты",searchPh:"Поиск по вузу или региону…",
+    cRank:"№",cName:"Университет",cRegion:"Регион",cLic:"Лицензии",cStarted:"Начали",cAct:"Актив.",cPct:"Активация %",cResp:"Отзывчивость",
+    liveNote:"Данные загружаются напрямую из Google Таблицы при каждом открытии страницы. Кнопка ⟳ вверху — обновить.",
+    updated:"Обновлено",
+    errTitle:"Не удалось загрузить данные из Google Таблицы.",
+    errBody:"Чтобы онлайн-страница видела данные, откройте таблицу и включите доступ: <b>Настройки доступа → Все, у кого есть ссылка → Читатель</b>. Либо <b>Файл → Опубликовать в интернете → CSV</b> и вставьте ссылку в поле <code>PUBLISHED_CSV</code> в коде страницы.",
+    respMap:{"Good":"Хорошая","Moderate":"Средняя","Low":"Низкая","No response":"Нет ответа","":"—"}
+  },
+  kz:{
+    title:"ChatGPT Edu — Университеттердегі енгізу панелі",
+    sub:"Google кестесінен нақты уақыттағы деректер. Әр университет өз көрсеткішін және ел бойынша орташамен салыстыруын көреді.",
+    loading:"Деректер жүктелуде…",
+    universities:"Университеттер",licenses:"Барлық лицензиялар",activated:"Белсендірілген аккаунттар",
+    national:"Орташа белсендіру (вуздар б-ша)",overallRate:"Жалпы қамту",started:"Бастады",ofLicenses:"лицензиядан",
+    regionTitle:"Аймақтар бойынша белсендіру",regionHint:"Облыстар бойынша жалпы қамту (белсендірілген ÷ лицензиялар).",
+    rankTitle:"Үздіктер мен артта қалғандар",rankHint:"Белсендіру пайызы бойынша үздік-12 және төменгі-12 университет.",
+    spotTitle:"Университет профилі",spotHint:"Көрсеткіштері мен рейтингтегі орнын көру үшін университетті таңдаңыз.",
+    selectPh:"Университетті таңдаңыз…",
+    sLic:"Лицензиялар",sStarted:"Бастады",sAct:"Белсендірілді",sPct:"Белсендіру",
+    rank:"Ел бойынша орны",of:"ішінде",above:"орташадан жоғары",below:"орташадан төмен",
+    resp:"Жауап беруі",region:"Аймақ",district:"Аудан",
+    tableTitle:"Барлық университеттер",searchPh:"Университет немесе аймақ бойынша іздеу…",
+    cRank:"№",cName:"Университет",cRegion:"Аймақ",cLic:"Лицензия",cStarted:"Бастады",cAct:"Белс.",cPct:"Белсендіру %",cResp:"Жауап беруі",
+    liveNote:"Деректер бет ашылған сайын Google кестесінен тікелей жүктеледі. Жоғарыдағы ⟳ түймесі — жаңарту.",
+    updated:"Жаңартылды",
+    errTitle:"Google кестесінен деректерді жүктеу мүмкін болмады.",
+    errBody:"Онлайн-бет деректерді көру үшін кестені ашып, рұқсатты қосыңыз: <b>Қол жеткізу → Сілтемесі бар кез келген адам → Оқырман</b>. Немесе <b>Файл → Интернетте жариялау → CSV</b> және сілтемені беттің кодындағы <code>PUBLISHED_CSV</code> өрісіне қойыңыз.",
+    respMap:{"Good":"Жақсы","Moderate":"Орташа","Low":"Төмен","No response":"Жауап жоқ","":"—"}
+  }
+};
+const REG={
+  "г.Астана":{ru:"г. Астана",kz:"Астана қ.",c:"#6C5CE7"},
+  "г.Алматы":{ru:"г. Алматы",kz:"Алматы қ.",c:"#ff5fa2"},
+  "г.Шымкент":{ru:"г. Шымкент",kz:"Шымкент қ.",c:"#ff9f43"},
+  "область Абай":{ru:"Абайская обл.",kz:"Абай облысы",c:"#12d8b0"},
+  "Карагандинская область":{ru:"Карагандинская обл.",kz:"Қарағанды облысы",c:"#4da8ff"},
+  "Кызылординская область":{ru:"Кызылординская обл.",kz:"Қызылорда облысы",c:"#e056fd"},
+  "Актюбинская область":{ru:"Актюбинская обл.",kz:"Ақтөбе облысы",c:"#20c997"},
+  "Западно-Казахстанская область":{ru:"Западно-Казахстанская обл.",kz:"Батыс Қазақстан облысы",c:"#ffb02e"},
+  "Павлодарская область":{ru:"Павлодарская обл.",kz:"Павлодар облысы",c:"#7d5fff"},
+  "Алматинская область":{ru:"Алматинская обл.",kz:"Алматы облысы",c:"#ff6b81"},
+  "область Ұлытау":{ru:"Улытауская обл.",kz:"Ұлытау облысы",c:"#00cec9"},
+  "Жамбылская область":{ru:"Жамбылская обл.",kz:"Жамбыл облысы",c:"#fd79a8"},
+  "Костанайская область":{ru:"Костанайская обл.",kz:"Қостанай облысы",c:"#0984e3"},
+  "Мангистауская область":{ru:"Мангистауская обл.",kz:"Маңғыстау облысы",c:"#00b894"},
+  "Акмолинская область":{ru:"Акмолинская обл.",kz:"Ақмола облысы",c:"#e17055"},
+  "Восточно-Казахстанская область":{ru:"Восточно-Казахстанская обл.",kz:"Шығыс Қазақстан облысы",c:"#a29bfe"},
+  "Северо-Казахстанская область":{ru:"Северо-Казахстанская обл.",kz:"Солтүстік Қазақстан облысы",c:"#fdcb6e"},
+  "область Жетісу":{ru:"Жетысуская обл.",kz:"Жетісу облысы",c:"#55efc4"},
+  "Атырауская область":{ru:"Атырауская обл.",kz:"Атырау облысы",c:"#ff7675"},
+  "Туркестанская область":{ru:"Туркестанская обл.",kz:"Түркістан облысы",c:"#74b9ff"}
+};
+function regName(r,l){const k=(r||"").trim();return REG[k]?REG[k][l]:(k||"—");}
+function regColor(r){const k=(r||"").trim();return REG[k]?REG[k].c:"#9b8cff";}
+
+let LANG="ru", DATA=[], NAT={}, sortKey="pct", sortDir=-1, charts={}, lastUpdated=null;
+
+/* ---------- CSV parsing ---------- */
+function parseCSV(text){
+  const rows=[];let row=[],cur="",q=false;
+  for(let i=0;i<text.length;i++){const ch=text[i];
+    if(q){ if(ch==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=ch; }
+    else{ if(ch==='"')q=true; else if(ch===','){row.push(cur);cur="";}
+      else if(ch==='\n'){row.push(cur);rows.push(row);row=[];cur="";}
+      else if(ch==='\r'){} else cur+=ch; }
+  }
+  if(cur.length||row.length){row.push(cur);rows.push(row);}
+  return rows;
+}
+function num(s){if(s==null)return 0;const v=parseFloat(String(s).replace(/[^0-9.\-]/g,""));return isNaN(v)?0:v;}
+function buildRows(cells2d){
+  const rows=[];
+  cells2d.forEach(c=>{
+    if(!c||c.length<10)return;
+    const id=(c[0]||"").trim();
+    if(!/^\d+$/.test(id))return;              // skip header + totals + blanks
+    const licenses=num(c[4]),started=num(c[7]),activated=num(c[8]);
+    if(licenses<=0)return;
+    rows.push({id:+id,name:(c[1]||"—").trim(),region:(c[2]||"").trim(),district:(c[3]||"").trim(),
+      licenses,started,activated,contact:(c[5]||"").trim(),
+      pct:licenses>0?activated/licenses*100:0,resp:(c[10]||"").trim()});
+  });
+  rows.sort((a,b)=>b.pct-a.pct);
+  rows.forEach((r,i)=>r.rank=i+1);
+  return rows;
+}
+function computeNational(){
+  const lic=DATA.reduce((s,r)=>s+r.licenses,0);
+  const act=DATA.reduce((s,r)=>s+r.activated,0);
+  const st=DATA.reduce((s,r)=>s+r.started,0);
+  const avg=DATA.length?DATA.reduce((s,r)=>s+r.pct,0)/DATA.length:0;
+  NAT={lic,act,started:st,pctWeighted:lic>0?act/lic*100:0,pctAvg:avg,pct:avg};
+}
+
+/* ---------- data load ---------- */
+async function loadData(){
+  const btn=document.getElementById("reloadBtn"); if(btn)btn.textContent="…";
+  document.getElementById("app").innerHTML='<div class="loading"><div class="spinner"></div><span>'+T[LANG].loading+'</span></div>';
+  let text=null,lastErr=null;
+  for(const url of ENDPOINTS){
+    try{ const res=await fetch(url,{cache:"no-store"}); if(!res.ok)throw new Error("HTTP "+res.status);
+      const t=await res.text();
+      if(t && t.trim().length && !/^<!DOCTYPE|^<html/i.test(t.trim())){ text=t; break; }
+      lastErr=new Error("Non-CSV response");
+    }catch(e){ lastErr=e; }
+  }
+  if(btn)btn.textContent="⟳";
+  if(!text){ showError(lastErr); return; }
+  DATA=buildRows(parseCSV(text));
+  if(!DATA.length){ showError(new Error("No rows parsed")); return; }
+  computeNational(); lastUpdated=new Date(); render();
+}
+function showError(e){
+  const t=T[LANG];
+  document.getElementById("app").innerHTML='<div class="card"><div class="errbox"><b>⚠️ '+t.errTitle+'</b><br>'+t.errBody+
+    '<br><br><small>'+(e&&e.message?e.message:e)+'</small></div></div>';
+  document.getElementById("srcbar").innerHTML='';
+}
+
+function pctColor(p){if(p<10)return"#ff6b6b";if(p<25)return"#ff9f43";if(p<50)return"#ffd43b";if(p<75)return"#12d8b0";return"#20c997";}
+function pctInk(p){return p>=25&&p<50?"#4a3200":"#fff";}
+const fmt=n=>n.toLocaleString(LANG==="kz"?"kk-KZ":"ru-RU");
+
+function setLang(l){LANG=l;document.querySelectorAll(".lang button").forEach(b=>b.classList.toggle("active",b.dataset.l===l));document.documentElement.lang=l==="kz"?"kk":"ru";headerText();if(DATA.length)render();}
+function headerText(){document.getElementById("ttl").textContent=T[LANG].title;document.getElementById("sub").textContent=T[LANG].sub;}
+
+function render(){
+  headerText();const t=T[LANG];
+  document.getElementById("app").innerHTML=`
+    <div class="kpis">
+      <div class="kpi k1"><div class="val">${fmt(DATA.length)}</div><div class="lab">${t.universities}</div></div>
+      <div class="kpi k2"><div class="val">${fmt(NAT.lic)}</div><div class="lab">${t.licenses}</div><div class="sub" style="color:#4da8ff">${fmt(NAT.started)} ${t.started}</div></div>
+      <div class="kpi k3"><div class="val">${fmt(NAT.act)}</div><div class="lab">${t.activated}</div></div>
+      <div class="kpi k4"><div class="val" style="color:${pctColor(NAT.pctAvg)}">${NAT.pctAvg.toFixed(2)}%</div><div class="lab">${t.national}</div><div class="sub" style="color:var(--muted)">${t.overallRate}: ${NAT.pctWeighted.toFixed(2)}%</div></div>
+    </div>
+    <div class="grid2">
+      <div class="card"><h2>${t.regionTitle}</h2><p class="hint">${t.regionHint}</p><div class="chartbox tall"><canvas id="cReg"></canvas></div></div>
+      <div class="card"><h2>${t.rankTitle}</h2><p class="hint">${t.rankHint}</p><div class="chartbox tall"><canvas id="cRank"></canvas></div></div>
+    </div>
+    <div class="card">
+      <h2>${t.spotTitle}</h2><p class="hint">${t.spotHint}</p>
+      <select id="spotSel" onchange="drawSpot(this.value)"></select>
+      <div id="spotOut"></div>
+    </div>
+    <div class="card">
+      <h2>${t.tableTitle}</h2>
+      <div class="controls"><div class="search"><input id="q" type="text" placeholder="${t.searchPh}" oninput="drawTable()"></div></div>
+      <div class="tablewrap"><table id="tbl"></table></div>
+      <div class="note">${t.liveNote}</div>
+    </div>`;
+  drawRegionChart();drawRankChart();fillSpotSelect();drawSpot(DATA[0].id);drawTable();
+  const up=lastUpdated?lastUpdated.toLocaleString(LANG==="kz"?"kk-KZ":"ru-RU"):"";
+  document.getElementById("srcbar").innerHTML=`${t.updated}: ${up} · <a href="https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit" target="_blank" rel="noopener">Google Sheet</a>`;
+}
+function shorten(n){return n.length>34?n.slice(0,32)+"…":n;}
+function drawRegionChart(){
+  const map={};
+  DATA.forEach(r=>{const k=(r.region||"").trim();(map[k]=map[k]||{lic:0,act:0,c:regColor(k)});map[k].lic+=r.licenses;map[k].act+=r.activated;});
+  const arr=Object.keys(map).map(k=>({k,pct:map[k].lic?map[k].act/map[k].lic*100:0,c:map[k].c})).sort((a,b)=>b.pct-a.pct);
+  if(charts.reg)charts.reg.destroy();
+  charts.reg=new Chart(document.getElementById("cReg"),{type:"bar",
+    data:{labels:arr.map(a=>regName(a.k,LANG)),datasets:[{data:arr.map(a=>+a.pct.toFixed(2)),backgroundColor:arr.map(a=>a.c),borderRadius:7,barThickness:14}]},
+    options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.x+"%"}}},
+      scales:{x:{ticks:{callback:v=>v+"%"},grid:{color:"#f0edff"}},y:{ticks:{font:{size:11}},grid:{display:false}}}}});
+}
+function drawRankChart(){
+  const set=[...DATA.slice(0,12),...DATA.slice(-12)];
+  if(charts.rank)charts.rank.destroy();
+  charts.rank=new Chart(document.getElementById("cRank"),{type:"bar",
+    data:{labels:set.map(r=>shorten(r.name)),datasets:[{data:set.map(r=>+r.pct.toFixed(2)),backgroundColor:set.map(r=>pctColor(r.pct)),borderRadius:7,barThickness:12}]},
+    options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{title:c=>set[c[0].dataIndex].name,label:c=>c.parsed.x+"% · "+regName(set[c.dataIndex].region,LANG)}}},
+      scales:{x:{ticks:{callback:v=>v+"%"},grid:{color:"#f0edff"}},y:{ticks:{font:{size:10}},grid:{display:false}}}}});
+}
+function fillSpotSelect(){
+  const t=T[LANG];const sel=document.getElementById("spotSel");
+  const opts=DATA.slice().sort((a,b)=>a.name.localeCompare(b.name,"ru"));
+  sel.innerHTML=`<option disabled>${t.selectPh}</option>`+opts.map(r=>`<option value="${r.id}">${r.name}</option>`).join("");
+}
+function respBg(r){return({"Good":"#20c997","Moderate":"#ff9f43","Low":"#ff6b6b","No response":"#adb5bd"})[r]||"#adb5bd";}
+function drawSpot(id){
+  const t=T[LANG];const r=DATA.find(x=>x.id==id);if(!r)return;
+  document.getElementById("spotSel").value=id;
+  const diff=r.pct-NAT.pctAvg;const up=diff>=0;
+  const respTxt=t.respMap[r.resp]!==undefined?t.respMap[r.resp]:r.resp||"—";
+  document.getElementById("spotOut").innerHTML=`
+    <div class="spot">
+      <div class="spotcard s1"><div class="n">${fmt(r.licenses)}</div><div class="t">${t.sLic}</div></div>
+      <div class="spotcard s2"><div class="n">${fmt(r.started)}</div><div class="t">${t.sStarted}</div></div>
+      <div class="spotcard s3"><div class="n">${fmt(r.activated)}</div><div class="t">${t.sAct}</div></div>
+      <div class="spotcard s4"><div class="n">${r.pct.toFixed(2)}%</div><div class="t">${t.sPct}</div></div>
+    </div>
+    <div class="spotmeta">
+      <span><b>${r.name}</b></span>
+      <span>${t.rank}: <b>#${r.rank}</b> ${t.of} ${DATA.length}</span>
+      <span style="color:${up?'#12b886':'#e64980'}"><b>${up?'▲ +':'▼ '}${diff.toFixed(2)} ${LANG==='kz'?'п.т.':'п.п.'}</b> ${up?t.above:t.below}</span>
+    </div>
+    <div class="spotmeta">
+      <span>${t.region}: <b>${regName(r.region,LANG)}</b></span>
+      <span>${t.district}: <b>${r.district||'—'}</b></span>
+      <span>${t.resp}: <span class="badge" style="background:${respBg(r.resp)}">${respTxt}</span></span>
+    </div>`;
+}
+function drawTable(){
+  const t=T[LANG];
+  const q=(document.getElementById("q").value||"").toLowerCase().trim();
+  let rows=DATA.filter(r=>!q||r.name.toLowerCase().includes(q)||regName(r.region,LANG).toLowerCase().includes(q)||regName(r.region,"ru").toLowerCase().includes(q));
+  rows=rows.slice().sort((a,b)=>{let v;if(sortKey==="name")v=a.name.localeCompare(b.name,"ru");else if(sortKey==="region")v=regName(a.region,LANG).localeCompare(regName(b.region,LANG),"ru");else v=a[sortKey]-b[sortKey];return v*sortDir;});
+  const arrow=k=>sortKey===k?(sortDir===1?" ▲":" ▼"):"";
+  const th=(k,lab,cls="")=>`<th class="${cls}" onclick="setSort('${k}')">${lab}${arrow(k)}</th>`;
+  let h=`<thead><tr>${th("rank",t.cRank)}${th("name",t.cName)}${th("region",t.cRegion)}${th("licenses",t.cLic,"num")}${th("started",t.cStarted,"num")}${th("activated",t.cAct,"num")}${th("pct",t.cPct,"num")}${th("resp",t.cResp)}</tr></thead><tbody>`;
+  rows.forEach(r=>{h+=`<tr>
+    <td class="num">${r.rank}</td>
+    <td class="name">${r.name}</td>
+    <td><span class="regionchip" style="background:${regColor(r.region)}">${regName(r.region,LANG)}</span></td>
+    <td class="num">${fmt(r.licenses)}</td><td class="num">${fmt(r.started)}</td><td class="num">${fmt(r.activated)}</td>
+    <td class="num"><span class="pill" style="background:${pctColor(r.pct)};color:${pctInk(r.pct)}">${r.pct.toFixed(1)}%</span></td>
+    <td><span class="badge" style="background:${respBg(r.resp)}">${t.respMap[r.resp]!==undefined?t.respMap[r.resp]:(r.resp||'—')}</span></td></tr>`;});
+  h+="</tbody>";document.getElementById("tbl").innerHTML=h;
+}
+function setSort(k){if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=(k==="name"||k==="region")?1:-1;}drawTable();}
+
+headerText();loadData();
+</script>
+</body>
+</html>
