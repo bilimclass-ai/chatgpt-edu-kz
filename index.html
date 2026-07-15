@@ -33,6 +33,9 @@ header.top p{margin:6px 0 0;opacity:.85;font-size:13.5px}
   color:#6b5117;border-radius:12px;padding:14px 18px;margin-top:16px;font-size:13px;line-height:1.55}
 .disclaimer .ic{font-size:16px;line-height:1.3}
 .disclaimer a{color:#8a6a1e;font-weight:700}
+.freshness{display:inline-flex;align-items:center;gap:6px;margin-top:8px;background:#fdeaea;border:1px solid #f3b8b8;
+  color:#b42323;font-weight:700;padding:5px 12px;border-radius:8px;font-size:12.5px}
+.freshness i{width:7px;height:7px;border-radius:50%;background:#d64545;display:inline-block;flex:0 0 auto}
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:18px 0 4px}
 .kpi{background:var(--card);border-radius:12px;padding:18px 18px 16px;box-shadow:var(--shadow);border-top:4px solid var(--accent)}
 .kpi.k1{border-top-color:var(--navy)}.kpi.k1 .val{color:var(--navy)}
@@ -45,6 +48,7 @@ header.top p{margin:6px 0 0;opacity:.85;font-size:13.5px}
 .card{background:var(--card);border-radius:12px;padding:20px;box-shadow:var(--shadow);margin-top:18px}
 .card h2{margin:0 0 4px;font-size:16px;color:var(--navy)}
 .card .hint{color:var(--muted);font-size:12.5px;margin:0 0 14px}
+.card .hint .snapnote{color:var(--muted);font-size:11.5px;font-style:italic}
 .chartbox{position:relative;height:340px}
 .chartbox.tall{height:430px}
 select,input[type=text]{width:100%;padding:12px 14px;border-radius:9px;border:1.5px solid var(--line);font-size:14px;color:var(--ink);background:#fff;outline:none;}
@@ -111,6 +115,18 @@ tr:hover td{background:#f7f9fc}
 .errbox code{background:#fff;border:1px solid #eccece;border-radius:6px;padding:1px 6px;font-size:12.5px}
 .srcbar{font-size:11.5px;color:var(--muted);text-align:center;margin-top:26px}
 .srcbar a{color:var(--accent);text-decoration:none;font-weight:600}
+/* signed / not-signed agreement status */
+.signstats{display:flex;gap:14px;margin:14px 0}
+.signstat{flex:1;border-radius:10px;padding:14px 16px;color:#fff}
+.signstat.ok{background:var(--good)}
+.signstat.bad{background:var(--bad)}
+.signstat .n{font-size:26px;font-weight:800}
+.signstat .t{font-size:12px;opacity:.92;margin-top:2px}
+.notsigned-title{font-size:12px;font-weight:700;color:var(--muted);margin:6px 0 8px;text-transform:uppercase;letter-spacing:.4px}
+.notsigned-list{display:flex;flex-direction:column;gap:6px}
+.notsigned-chip{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#fdf1f1;border:1px solid #f3caca;border-radius:8px;padding:9px 12px;font-size:13px}
+.notsigned-chip b{color:var(--ink);font-weight:600}
+.notsigned-chip span{color:#9c4a4a;font-size:11.5px;white-space:nowrap}
 @media(max-width:860px){.kpis{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}.spot{grid-template-columns:repeat(2,1fr)}}
 /* phones */
 @media(max-width:640px){
@@ -138,6 +154,8 @@ tr:hover td{background:#f7f9fc}
   th,td{padding:8px 9px}
   .tl-months{display:none}
   .ptrack{flex:0 0 64px}
+  .signstats{flex-direction:column}
+  .notsigned-chip{flex-direction:column;align-items:flex-start;gap:2px}
 }
 </style>
 </head>
@@ -192,6 +210,28 @@ const ENDPOINTS=[
 /* Refresh_Info tab: official Power BI refresh date, updated automatically */
 const META_CSV=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=433329528`;
 
+/* ------------------------------------------------------------
+   Agreement (joining-contract) status — pulled manually from
+   page 1 of the Power BI report ("Организации, которые
+   подписали / не подписали договор присоединения"), since this
+   breakdown is not yet part of the published Google Sheet feed.
+   Update this block whenever the Power BI numbers change, or
+   better: add a live-synced tab to the sheet and wire ENDPOINT
+   fetching in here the same way the license data works.
+   ------------------------------------------------------------ */
+const SIGN_STATUS={
+  asOf:"13.07.2026 11:07",
+  signed:99,
+  notSigned:[
+    {name:"Де Монтфорт университеті",region:"г. Алматы",district:"Медеуский р-н"},
+    {name:"КИМЭП Университеті",region:"г. Алматы",district:"Медеуский р-н"},
+    {name:"Күләш Байсейітова атындағы Қазақ ұлттық өнер университеті",region:"г. Астана",district:"р-н Алматы"},
+    {name:"Maqsut Narikbayev University",region:"г. Астана",district:"р-н Нура"},
+    {name:"«Орталық – Қазақстан Академиясы» ЧУ",region:"Карагандинская обл.",district:""},
+    {name:"Карагандинский университет Казпотребсоюза",region:"Карагандинская обл.",district:""}
+  ]
+};
+
 /* ---------- i18n ---------- */
 const T={
   ru:{
@@ -200,8 +240,8 @@ const T={
     loading:"Загрузка данных…",
     universities:"Вузов",licenses:"Выделено всего лицензий",activated:"Активировано лицензий",
     national:"Общий охват активации",natSub:"активировано ÷ выделено лицензий",started:"Начали обучение",
-    topTitle:"Лидеры активации",topHint:"Топ-12 вузов по проценту активации лицензий.",
-    lowTitle:"Требуют внимания",lowHint:"12 вузов с наименьшим процентом активации.",
+    topTitle:"Лидеры активации",topHint:"Топ-10 вузов по проценту активации лицензий.",
+    lowTitle:"Требуют внимания",lowHint:"10 подписавших договор вузов с наименьшим процентом активации.",
     spotTitle:"Профиль вуза",spotHint:"Начните вводить название вуза, чтобы найти его и увидеть показатели.",
     selectPh:"Поиск вуза…",noMatch:"Ничего не найдено",
     sLic:"Лицензий",sStarted:"Начали обучение",sAct:"Активировано",sPct:"Процент активации",
@@ -212,12 +252,18 @@ const T={
     cRank:"№",cName:"Вуз",cRegion:"Регион",cLic:"Лицензии",cStarted:"Начали обучение",cAct:"Актив.",cPct:"Активация %",cStatus:"Статус",
     st:["Требует внимания","Начальный этап","По плану","Отлично"],
     tlTitle:"Сроки проекта · 12 месяцев",tlStart:"Запуск проекта",tlEnd:"Завершение проекта",
-    disclaimer:'Данные синхронизируются с базой ChatGPT Edu через Power BI и могут отставать до <b>48 часов</b>. Официальная дата последнего обновления данных указана на <a href="'+POWERBI_URL+'" target="_blank" rel="noopener">странице 3 отчёта Power BI</a>.',
+    disclaimer:'Данные синхронизируются с базой ChatGPT Edu через Power BI и могут отставать до <b>48 часов</b>.',
     dataAsOf:"Последнее обновление данных",loadedAt:"Страница загружена",
     liveNote:"Данные загружаются автоматически при каждом открытии страницы. Кнопка ⟳ вверху — обновить.",
     pbiLink:"Отчёт Power BI",
     errTitle:"Не удалось загрузить данные.",
-    errBody:"Проверьте, что таблица-источник опубликована в интернете (<b>Файл → Опубликовать в интернете → CSV</b>) и ссылка указана в поле <code>PUBLISHED_CSV</code> в коде страницы."
+    errBody:"Проверьте, что таблица-источник опубликована в интернете (<b>Файл → Опубликовать в интернете → CSV</b>) и ссылка указана в поле <code>PUBLISHED_CSV</code> в коде страницы.",
+    signTitle:"Статус подписания договора присоединения",
+    signHint:"Организации, официально присоединившиеся к проекту ChatGPT Edu.",
+    snapNote:"по данным Power BI на",
+    signedLbl:"Подписали договор",
+    notSignedLbl:"Ещё не подписали",
+    notSignedListTitle:"Пока не подписали:"
   },
   kz:{
     title:"ChatGPT Edu — Қазақстан ЖОО-ларында",
@@ -225,8 +271,8 @@ const T={
     loading:"Деректер жүктелуде…",
     universities:"ЖОО саны",licenses:"Барлығы бөлінген лицензиялар",activated:"Белсендірілген лицензиялар",
     national:"Жалпы қамту (белсендіру)",natSub:"белсендірілген ÷ бөлінген лицензиялар",started:"Оқуды бастады",
-    topTitle:"Белсендіру көшбасшылары",topHint:"Лицензияларды белсендіру пайызы бойынша үздік 12 ЖОО.",
-    lowTitle:"Назар аударуды қажет етеді",lowHint:"Белсендіру пайызы ең төмен 12 ЖОО.",
+    topTitle:"Белсендіру көшбасшылары",topHint:"Лицензияларды белсендіру пайызы бойынша үздік 10 ЖОО.",
+    lowTitle:"Назар аударуды қажет етеді",lowHint:"Шартқа қол қойған, белсендіру пайызы ең төмен 10 ЖОО.",
     spotTitle:"ЖОО профилі",spotHint:"ЖОО-ны табу үшін атауын тере бастаңыз.",
     selectPh:"ЖОО іздеу…",noMatch:"Ештеңе табылмады",
     sLic:"Лицензиялар",sStarted:"Оқуды бастады",sAct:"Белсендірілді",sPct:"Белсендіру пайызы",
@@ -237,12 +283,18 @@ const T={
     cRank:"№",cName:"ЖОО",cRegion:"Аймақ",cLic:"Лицензия",cStarted:"Оқуды бастады",cAct:"Белс.",cPct:"Белсендіру %",cStatus:"Статус",
     st:["Назар қажет","Бастапқы кезең","Жоспар бойынша","Өте жақсы"],
     tlTitle:"Жоба мерзімі · 12 ай",tlStart:"Жобаның басталуы",tlEnd:"Жобаның аяқталуы",
-    disclaimer:'Деректер Power BI арқылы ChatGPT Edu базасымен синхрондалады және <b>48 сағатқа дейін</b> кешігуі мүмкін. Деректердің соңғы ресми жаңартылған күні <a href="'+POWERBI_URL+'" target="_blank" rel="noopener">Power BI есебінің 3-бетінде</a> көрсетілген.',
+    disclaimer:'Деректер Power BI арқылы ChatGPT Edu базасымен синхрондалады және <b>48 сағатқа дейін</b> кешігуі мүмкін.',
     dataAsOf:"Деректердің соңғы жаңартылуы",loadedAt:"Бет жүктелді",
     liveNote:"Деректер бет ашылған сайын автоматты түрде жүктеледі. Жоғарыдағы ⟳ түймесі — жаңарту.",
     pbiLink:"Power BI есебі",
     errTitle:"Деректерді жүктеу мүмкін болмады.",
-    errBody:"Дереккөз кестесі интернетте жарияланғанын тексеріңіз (<b>Файл → Интернетте жариялау → CSV</b>) және сілтеме беттің кодындағы <code>PUBLISHED_CSV</code> өрісінде тұрғанына көз жеткізіңіз."
+    errBody:"Дереккөз кестесі интернетте жарияланғанын тексеріңіз (<b>Файл → Интернетте жариялау → CSV</b>) және сілтеме беттің кодындағы <code>PUBLISHED_CSV</code> өрісінде тұрғанына көз жеткізіңіз.",
+    signTitle:"Қосылу шартына қол қою мәртебесі",
+    signHint:"ChatGPT Edu жобасына ресми қосылған ұйымдар.",
+    snapNote:"Power BI деректері бойынша",
+    signedLbl:"Шартқа қол қойды",
+    notSignedLbl:"Әлі қол қойған жоқ",
+    notSignedListTitle:"Әлі қол қоймағандар:"
   }
 };
 const REG={
@@ -424,6 +476,21 @@ function timelineHTML(){
     <div class="tl-dates"><div><b>30.03.2026</b><br>${t.tlStart}</div><div style="text-align:right"><b>29.03.2027</b><br>${t.tlEnd}</div></div>
   </div>`;
 }
+function signStatusHTML(){
+  const t=T[LANG];
+  return `<div class="card signcard">
+    <h2>${t.signTitle}</h2>
+    <p class="hint">${t.signHint} <span class="snapnote">(${t.snapNote} ${SIGN_STATUS.asOf})</span></p>
+    <div class="signstats">
+      <div class="signstat ok"><div class="n">${SIGN_STATUS.signed}</div><div class="t">${t.signedLbl}</div></div>
+      <div class="signstat bad"><div class="n">${SIGN_STATUS.notSigned.length}</div><div class="t">${t.notSignedLbl}</div></div>
+    </div>
+    <div class="notsigned-title">${t.notSignedListTitle}</div>
+    <div class="notsigned-list">
+      ${SIGN_STATUS.notSigned.map(o=>`<div class="notsigned-chip"><b>${esc(o.name)}</b><span>${esc(o.region)}${o.district?", "+esc(o.district):""}</span></div>`).join("")}
+    </div>
+  </div>`;
+}
 const fmt=n=>n.toLocaleString(LANG==="kz"?"kk-KZ":"ru-RU");
 
 function setLang(l){LANG=l;document.querySelectorAll(".lang button").forEach(b=>b.classList.toggle("active",b.dataset.l===l));document.documentElement.lang=l==="kz"?"kk":"ru";headerText();if(DATA.length)render();}
@@ -432,12 +499,13 @@ function headerText(){
   document.getElementById("ttl").textContent=t.title;
   document.getElementById("sub").textContent=t.sub;
   const d=document.getElementById("disc");d.hidden=false;
-  document.getElementById("discTxt").innerHTML=t.disclaimer+(dataDate?" · <b>"+t.dataAsOf+": "+esc(dataDate)+"</b>":"");
+  document.getElementById("discTxt").innerHTML=t.disclaimer+(dataDate?'<div class="freshness"><i></i>'+t.dataAsOf+": "+esc(dataDate)+'</div>':"");
 }
 
 function render(){
   headerText();const t=T[LANG];
   document.getElementById("app").innerHTML=`
+    ${signStatusHTML()}
     ${timelineHTML()}
     <div class="kpis">
       <div class="kpi k1"><div class="val">${fmt(DATA.length)}</div><div class="lab">${t.universities}</div></div>
@@ -464,8 +532,8 @@ function render(){
       <div class="tablewrap"><table id="tbl"></table></div>
       <div class="note">${t.liveNote}</div>
     </div>`;
-  drawRankChart("cTop",DATA.slice(0,12),"#1e9e63");
-  drawRankChart("cLow",DATA.slice(-12),"#d64545");
+  drawRankChart("cTop",DATA.slice(0,10),"#1e9e63");
+  drawRankChart("cLow",DATA.slice(-10),"#d64545");
   drawSpot(SELID&&DATA.some(x=>x.id==SELID)?SELID:DATA[0].id);
   drawTable();
   const up=lastUpdated?lastUpdated.toLocaleString(LANG==="kz"?"kk-KZ":"ru-RU"):"";
