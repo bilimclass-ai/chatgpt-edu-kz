@@ -235,11 +235,14 @@ const SIGN_STATUS={
    license sheet (0% activation), which would otherwise put them on the
    "needs attention" chart even though they haven't joined the project yet.
    Filter them out of that chart using distinctive keyword matches. */
-const NOT_SIGNED_KEYS=["монтфорт","кимэп","байсейітова","narikbayev","казпотребсоюз",["орталық","академ"]];
-function isNotSigned(name){
-  const n=(name||"").toLowerCase();
-  return NOT_SIGNED_KEYS.some(k=>Array.isArray(k)?k.every(p=>n.includes(p)):n.includes(k));
-}
+/* Matched by row "№" id (col 0 of the sheet) rather than name text —
+   Kazakh Cyrillic diacritics (ә/і/ғ/ұ/қ) make free-text matching between
+   the Power BI screenshot and the sheet's spelling unreliable. IDs:
+   49 Карагандинский университет Казпотребсоюза · 60 Maqsut Narikbayev University ·
+   64 КИМЭП Университеті · 66 Күләш Байсейітова атындағы ... өнер университеті ·
+   89 «Орталық – Қазақстан Академиясы» · 102 Де Монтфорт университеті */
+const NOT_SIGNED_IDS=new Set([49,60,64,66,89,102]);
+function isNotSigned(row){return NOT_SIGNED_IDS.has(row.id);}
 
 /* ---------- i18n ---------- */
 const T={
@@ -541,7 +544,7 @@ function render(){
       <div class="tablewrap"><table id="tbl"></table></div>
       <div class="note">${t.liveNote}</div>
     </div>`;
-  const signedOnly=DATA.filter(r=>!isNotSigned(r.name));
+  const signedOnly=DATA.filter(r=>!isNotSigned(r));
   drawRankChart("cTop",DATA.slice(0,10),"#1e9e63");
   drawRankChart("cLow",signedOnly.slice(-10),"#d64545");
   drawSpot(SELID&&DATA.some(x=>x.id==SELID)?SELID:DATA[0].id);
