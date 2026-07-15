@@ -231,6 +231,15 @@ const SIGN_STATUS={
     {name:"Карагандинский университет Казпотребсоюза",region:"Карагандинская обл.",district:""}
   ]
 };
+/* Some not-yet-signed organizations already have a placeholder row in the
+   license sheet (0% activation), which would otherwise put them on the
+   "needs attention" chart even though they haven't joined the project yet.
+   Filter them out of that chart using distinctive keyword matches. */
+const NOT_SIGNED_KEYS=["монтфорт","кимэп","байсейітова","narikbayev","казпотребсоюз",["орталық","академ"]];
+function isNotSigned(name){
+  const n=(name||"").toLowerCase();
+  return NOT_SIGNED_KEYS.some(k=>Array.isArray(k)?k.every(p=>n.includes(p)):n.includes(k));
+}
 
 /* ---------- i18n ---------- */
 const T={
@@ -532,8 +541,9 @@ function render(){
       <div class="tablewrap"><table id="tbl"></table></div>
       <div class="note">${t.liveNote}</div>
     </div>`;
+  const signedOnly=DATA.filter(r=>!isNotSigned(r.name));
   drawRankChart("cTop",DATA.slice(0,10),"#1e9e63");
-  drawRankChart("cLow",DATA.slice(-10),"#d64545");
+  drawRankChart("cLow",signedOnly.slice(-10),"#d64545");
   drawSpot(SELID&&DATA.some(x=>x.id==SELID)?SELID:DATA[0].id);
   drawTable();
   const up=lastUpdated?lastUpdated.toLocaleString(LANG==="kz"?"kk-KZ":"ru-RU"):"";
