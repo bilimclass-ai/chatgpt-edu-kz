@@ -29,13 +29,11 @@ header.top p{margin:6px 0 0;opacity:.85;font-size:13.5px}
 .lang{display:flex;gap:6px;background:rgba(255,255,255,.12);padding:5px;border-radius:10px}
 .lang button{border:0;cursor:pointer;padding:8px 16px;border-radius:7px;font-weight:700;font-size:13px;background:transparent;color:#fff;transition:.15s;}
 .lang button.active{background:#fff;color:var(--navy)}
-.disclaimer{display:flex;gap:12px;align-items:flex-start;background:#fdf6e8;border:1px solid #ecd9ad;
-  color:#6b5117;border-radius:12px;padding:14px 18px;margin-top:16px;font-size:13px;line-height:1.55}
+.disclaimer{display:flex;gap:12px;align-items:flex-start;background:#ffe1e1;border:1px solid #f0aeae;
+  color:#5c1a1a;border-radius:12px;padding:14px 18px;margin-top:16px;font-size:13px;line-height:1.55}
 .disclaimer .ic{font-size:16px;line-height:1.3}
 .disclaimer a{color:#8a6a1e;font-weight:700}
-.freshness{display:inline-flex;align-items:center;gap:6px;margin-top:8px;background:#fdeaea;border:1px solid #f3b8b8;
-  color:#b42323;font-weight:700;padding:5px 12px;border-radius:8px;font-size:12.5px}
-.freshness i{width:7px;height:7px;border-radius:50%;background:#d64545;display:inline-block;flex:0 0 auto}
+.disclaimer .freshness{display:block;margin-top:6px;font-weight:700}
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:18px 0 4px}
 .kpi{background:var(--card);border-radius:12px;padding:18px 18px 16px;box-shadow:var(--shadow);border-top:4px solid var(--accent)}
 .kpi.k1{border-top-color:var(--navy)}.kpi.k1 .val{color:var(--navy)}
@@ -116,17 +114,16 @@ tr:hover td{background:#f7f9fc}
 .srcbar{font-size:11.5px;color:var(--muted);text-align:center;margin-top:26px}
 .srcbar a{color:var(--accent);text-decoration:none;font-weight:600}
 /* signed / not-signed agreement status */
-.signstats{display:flex;gap:14px;margin:14px 0}
-.signstat{flex:1;border-radius:10px;padding:14px 16px;color:#fff}
-.signstat.ok{background:var(--good)}
-.signstat.bad{background:var(--bad)}
-.signstat .n{font-size:26px;font-weight:800}
-.signstat .t{font-size:12px;opacity:.92;margin-top:2px}
-.notsigned-title{font-size:12px;font-weight:700;color:var(--muted);margin:6px 0 8px;text-transform:uppercase;letter-spacing:.4px}
-.notsigned-list{display:flex;flex-direction:column;gap:6px}
-.notsigned-chip{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#fdf1f1;border:1px solid #f3caca;border-radius:8px;padding:9px 12px;font-size:13px}
-.notsigned-chip b{color:var(--ink);font-weight:600}
-.notsigned-chip span{color:#9c4a4a;font-size:11.5px;white-space:nowrap}
+.signkpi{display:flex;flex-direction:column;justify-content:center;gap:8px}
+.signrow{display:flex;align-items:center;gap:9px}
+.signrow .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+.signrow.ok .dot{background:var(--good)}
+.signrow.bad .dot{background:var(--bad)}
+.signrow b{font-size:22px;font-weight:800;color:var(--navy)}
+.signrow span{font-size:12.5px;color:var(--muted);font-weight:600}
+.notsigned-hint .snapnote{color:var(--muted);font-size:11.5px;font-style:italic}
+table.notsigned-table{min-width:0}
+table.notsigned-table td.reg{white-space:normal}
 @media(max-width:860px){.kpis{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}.spot{grid-template-columns:repeat(2,1fr)}}
 /* phones */
 @media(max-width:640px){
@@ -154,8 +151,6 @@ tr:hover td{background:#f7f9fc}
   th,td{padding:8px 9px}
   .tl-months{display:none}
   .ptrack{flex:0 0 64px}
-  .signstats{flex-direction:column}
-  .notsigned-chip{flex-direction:column;align-items:flex-start;gap:2px}
 }
 </style>
 </head>
@@ -364,7 +359,7 @@ function cleanName(s){
   return n||String(s||"");
 }
 
-let LANG="ru", DATA=[], NAT={}, sortKey="pct", sortDir=-1, charts={}, lastUpdated=null, dataDate=null;
+let LANG="ru", DATA=[], DISPLAY=[], NAT={}, sortKey="pct", sortDir=-1, charts={}, lastUpdated=null, dataDate=null;
 let SELID=null, QVAL="";   // preserved across auto-refresh
 
 /* ---------- CSV parsing ---------- */
@@ -430,6 +425,7 @@ async function loadData(silent){
   if(btn)btn.textContent="⟳";
   if(!text){ showError(lastErr); return; }
   DATA=buildRows(parseCSV(text));
+  DISPLAY=DATA.filter(r=>!isNotSigned(r));
   if(!DATA.length){ showError(new Error("No rows parsed")); return; }
   computeNational(); lastUpdated=new Date();
   await loadMeta();
@@ -488,19 +484,24 @@ function timelineHTML(){
     <div class="tl-dates"><div><b>30.03.2026</b><br>${t.tlStart}</div><div style="text-align:right"><b>29.03.2027</b><br>${t.tlEnd}</div></div>
   </div>`;
 }
-function signStatusHTML(){
+function signKpiHTML(){
   const t=T[LANG];
-  return `<div class="card signcard">
-    <h2>${t.signTitle}</h2>
-    <p class="hint">${t.signHint} <span class="snapnote">(${t.snapNote} ${SIGN_STATUS.asOf})</span></p>
-    <div class="signstats">
-      <div class="signstat ok"><div class="n">${SIGN_STATUS.signed}</div><div class="t">${t.signedLbl}</div></div>
-      <div class="signstat bad"><div class="n">${SIGN_STATUS.notSigned.length}</div><div class="t">${t.notSignedLbl}</div></div>
-    </div>
-    <div class="notsigned-title">${t.notSignedListTitle}</div>
-    <div class="notsigned-list">
-      ${SIGN_STATUS.notSigned.map(o=>`<div class="notsigned-chip"><b>${esc(o.name)}</b><span>${esc(o.region)}${o.district?", "+esc(o.district):""}</span></div>`).join("")}
-    </div>
+  return `<div class="kpi k1 signkpi">
+    <div class="signrow ok"><i class="dot"></i><b>${SIGN_STATUS.signed}</b><span>${t.signedLbl}</span></div>
+    <div class="signrow bad"><i class="dot"></i><b>${SIGN_STATUS.notSigned.length}</b><span>${t.notSignedLbl}</span></div>
+  </div>`;
+}
+function notSignedTableHTML(){
+  const t=T[LANG];
+  return `<div class="card">
+    <h2>${t.notSignedListTitle}</h2>
+    <p class="hint notsigned-hint">${t.signHint} <span class="snapnote">(${t.snapNote} ${SIGN_STATUS.asOf})</span></p>
+    <div class="tablewrap"><table class="notsigned-table">
+      <thead><tr><th>${t.cName}</th><th>${t.cRegion}</th><th>${t.district}</th></tr></thead>
+      <tbody>
+        ${SIGN_STATUS.notSigned.map(o=>`<tr><td class="name">${esc(o.name)}</td><td class="reg">${esc(o.region)}</td><td class="reg">${esc(o.district||"—")}</td></tr>`).join("")}
+      </tbody>
+    </table></div>
   </div>`;
 }
 const fmt=n=>n.toLocaleString(LANG==="kz"?"kk-KZ":"ru-RU");
@@ -511,16 +512,15 @@ function headerText(){
   document.getElementById("ttl").textContent=t.title;
   document.getElementById("sub").textContent=t.sub;
   const d=document.getElementById("disc");d.hidden=false;
-  document.getElementById("discTxt").innerHTML=t.disclaimer+(dataDate?'<div class="freshness"><i></i>'+t.dataAsOf+": "+esc(dataDate)+'</div>':"");
+  document.getElementById("discTxt").innerHTML=t.disclaimer+(dataDate?'<div class="freshness">'+t.dataAsOf+": "+esc(dataDate)+'</div>':"");
 }
 
 function render(){
   headerText();const t=T[LANG];
   document.getElementById("app").innerHTML=`
-    ${signStatusHTML()}
     ${timelineHTML()}
     <div class="kpis">
-      <div class="kpi k1"><div class="val">${fmt(DATA.length)}</div><div class="lab">${t.universities}</div></div>
+      ${signKpiHTML()}
       <div class="kpi k2"><div class="val">${fmt(NAT.lic)}</div><div class="lab">${t.licenses}</div></div>
       <div class="kpi k3"><div class="val">${fmt(NAT.act)}</div><div class="lab">${t.activated}</div></div>
       <div class="kpi" style="border-top-color:${pctColor(NAT.pctWeighted)}"><div class="val" style="color:${pctColor(NAT.pctWeighted)}">${NAT.pctWeighted.toFixed(2)}%</div><div class="lab">${t.national}</div><div class="sub">${t.natSub}</div></div>
@@ -543,11 +543,11 @@ function render(){
       <div class="controls"><div class="search"><input id="q" type="text" placeholder="${t.searchPh}" value="${QVAL.replace(/"/g,'&quot;')}" oninput="drawTable()"></div></div>
       <div class="tablewrap"><table id="tbl"></table></div>
       <div class="note">${t.liveNote}</div>
-    </div>`;
-  const signedOnly=DATA.filter(r=>!isNotSigned(r));
-  drawRankChart("cTop",DATA.slice(0,10),"#1e9e63");
-  drawRankChart("cLow",signedOnly.slice(-10),"#d64545");
-  drawSpot(SELID&&DATA.some(x=>x.id==SELID)?SELID:DATA[0].id);
+    </div>
+    ${notSignedTableHTML()}`;
+  drawRankChart("cTop",DISPLAY.slice(0,10),"#1e9e63");
+  drawRankChart("cLow",DISPLAY.slice(-10),"#d64545");
+  drawSpot(SELID&&DISPLAY.some(x=>x.id==SELID)?SELID:DISPLAY[0].id);
   drawTable();
   const up=lastUpdated?lastUpdated.toLocaleString(LANG==="kz"?"kk-KZ":"ru-RU"):"";
   document.getElementById("srcbar").innerHTML=`${t.loadedAt}: ${up} · <a href="${POWERBI_URL}" target="_blank" rel="noopener">${t.pbiLink}</a>`;
@@ -567,7 +567,7 @@ function comboFilter(){
   const t=T[LANG];
   const q=(document.getElementById("spotSearch").value||"").toLowerCase().trim();
   const list=document.getElementById("comboList");
-  const opts=DATA.slice().sort((a,b)=>cleanName(a.name).localeCompare(cleanName(b.name),"ru"))
+  const opts=DISPLAY.slice().sort((a,b)=>cleanName(a.name).localeCompare(cleanName(b.name),"ru"))
     .filter(r=>!q||cleanName(r.name).toLowerCase().includes(q)||r.name.toLowerCase().includes(q))
     .slice(0,40);
   list.innerHTML=opts.length
@@ -576,7 +576,7 @@ function comboFilter(){
   list.hidden=false;
 }
 function selectUni(id){
-  const r=DATA.find(x=>x.id==id);if(!r)return;
+  const r=DISPLAY.find(x=>x.id==id);if(!r)return;
   document.getElementById("spotSearch").value=cleanName(r.name);
   document.getElementById("comboList").hidden=true;
   drawSpot(id);
@@ -586,7 +586,7 @@ document.addEventListener("click",e=>{
   if(c&&!c.contains(e.target)){const l=document.getElementById("comboList");if(l)l.hidden=true;}
 });
 function drawSpot(id){
-  const t=T[LANG];const r=DATA.find(x=>x.id==id);if(!r)return;
+  const t=T[LANG];const r=DISPLAY.find(x=>x.id==id);if(!r)return;
   SELID=id;
   const si=document.getElementById("spotSearch");if(si)si.value=cleanName(r.name);
   document.getElementById("spotOut").innerHTML=`
@@ -604,7 +604,7 @@ function drawSpot(id){
     </div>
     <div class="spotmeta">
       <span><b>${esc(cleanName(r.name))}</b></span>
-      <span>${t.rank}: <b>#${r.rank}</b> ${t.of} ${DATA.length}</span>
+      <span>${t.rank}: <b>#${r.rank}</b> ${t.of} ${DISPLAY.length}</span>
     </div>
     <div class="spotmeta">
       <span>${t.region}: <b>${esc(regName(r.region,LANG))}</b></span>
@@ -615,7 +615,7 @@ function drawTable(){
   const t=T[LANG];
   QVAL=document.getElementById("q").value||"";
   const q=QVAL.toLowerCase().trim();
-  let rows=DATA.filter(r=>!q||r.name.toLowerCase().includes(q)||cleanName(r.name).toLowerCase().includes(q)||regName(r.region,LANG).toLowerCase().includes(q)||regName(r.region,"ru").toLowerCase().includes(q));
+  let rows=DISPLAY.filter(r=>!q||r.name.toLowerCase().includes(q)||cleanName(r.name).toLowerCase().includes(q)||regName(r.region,LANG).toLowerCase().includes(q)||regName(r.region,"ru").toLowerCase().includes(q));
   rows=rows.slice().sort((a,b)=>{let v;if(sortKey==="name")v=cleanName(a.name).localeCompare(cleanName(b.name),"ru");else if(sortKey==="region")v=regName(a.region,LANG).localeCompare(regName(b.region,LANG),"ru");else if(sortKey==="status")v=a.pct-b.pct;else v=a[sortKey]-b[sortKey];return v*sortDir;});
   const arrow=k=>sortKey===k?(sortDir===1?" ▲":" ▼"):"";
   const th=(k,lab,cls="")=>`<th class="${cls}" onclick="setSort('${k}')">${lab}${arrow(k)}</th>`;
