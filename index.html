@@ -259,7 +259,7 @@ const T={
     cRank:"№",cName:"Вуз",cRegion:"Регион",cLic:"Лицензии",cStarted:"Начали обучение",cAct:"Актив.",cPct:"Активация %",cStatus:"Статус",
     st:["Требует внимания","Начальный этап","По плану","Отлично"],
     tlTitle:"Сроки проекта · 12 месяцев",tlStart:"Запуск проекта",tlEnd:"Завершение проекта",
-    disclaimer:'Данные синхронизируются с базой ChatGPT Edu через Power BI и могут отставать до <b>48 часов</b>.',
+    disclaimer:'Данные синхронизируются с базой ChatGPT Edu и могут отставать до <b>48 часов</b>.',
     dataAsOf:"Последнее обновление данных",loadedAt:"Страница загружена",
     liveNote:"Данные загружаются автоматически при каждом открытии страницы. Кнопка ⟳ вверху — обновить.",
     pbiLink:"Отчёт Power BI",
@@ -290,7 +290,7 @@ const T={
     cRank:"№",cName:"ЖОО",cRegion:"Аймақ",cLic:"Лицензия",cStarted:"Оқуды бастады",cAct:"Белс.",cPct:"Белсендіру %",cStatus:"Статус",
     st:["Назар қажет","Бастапқы кезең","Жоспар бойынша","Өте жақсы"],
     tlTitle:"Жоба мерзімі · 12 ай",tlStart:"Жобаның басталуы",tlEnd:"Жобаның аяқталуы",
-    disclaimer:'Деректер Power BI арқылы ChatGPT Edu базасымен синхрондалады және <b>48 сағатқа дейін</b> кешігуі мүмкін.',
+    disclaimer:'Деректер ChatGPT Edu базасымен синхрондалады және <b>48 сағатқа дейін</b> кешігуі мүмкін.',
     dataAsOf:"Деректердің соңғы жаңартылуы",loadedAt:"Бет жүктелді",
     liveNote:"Деректер бет ашылған сайын автоматты түрде жүктеледі. Жоғарыдағы ⟳ түймесі — жаңарту.",
     pbiLink:"Power BI есебі",
@@ -495,7 +495,7 @@ function notSignedTableHTML(){
   const t=T[LANG];
   return `<div class="card">
     <h2>${t.notSignedListTitle}</h2>
-    <p class="hint notsigned-hint">${t.signHint} <span class="snapnote">(${t.snapNote} ${SIGN_STATUS.asOf})</span></p>
+    <p class="hint notsigned-hint">${t.signHint}</p>
     <div class="tablewrap"><table class="notsigned-table">
       <thead><tr><th>${t.cName}</th><th>${t.cRegion}</th><th>${t.district}</th></tr></thead>
       <tbody>
