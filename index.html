@@ -153,6 +153,14 @@ table.notsigned-table td.reg{white-space:normal}
   .ptrack{flex:0 0 64px}
 }
 </style>
+<link rel="canonical" href="https://bilimclass-ai.github.io/chatgpt-edu-kz/">
+<script>
+  if (location.search.includes('v=')) {
+    const u = new URL(location.href);
+    u.searchParams.delete('v');
+    history.replaceState(null, '', u.pathname + u.search + u.hash);
+  }
+</script>
 </head>
 <body>
 <div class="wrap">
@@ -632,11 +640,12 @@ function drawTable(){
   h+="</tbody>";document.getElementById("tbl").innerHTML=h;
 }
 function setSort(k){if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=(k==="name"||k==="region")?1:-1;}drawTable();}
-
-
 headerText();loadData();
 /* auto-refresh every 15 minutes while the page is open (only when visible) */
 setInterval(()=>{if(document.visibilityState==="visible")loadData(true);},15*60*1000);
 </script>
+<script type="module" defer
+  src="https://static.cloudflareinsights.com/beacon.min.js"
+  data-cf-beacon='{"token":"d792b779ac104ef08759ef4d061fb7e7"}'></script>
 </body>
 </html>
