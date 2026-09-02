@@ -223,15 +223,13 @@ const META_CSV=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=o
    fetching in here the same way the license data works.
    ------------------------------------------------------------ */
 const SIGN_STATUS={
-  asOf:"13.07.2026 11:07",
-  signed:99,
+  asOf:"02.09.2026",
+  signed:101,
   notSigned:[
     {name:"Де Монтфорт университеті",region:"г. Алматы",district:"Медеуский р-н"},
     {name:"КИМЭП Университеті",region:"г. Алматы",district:"Медеуский р-н"},
     {name:"Күләш Байсейітова атындағы Қазақ ұлттық өнер университеті",region:"г. Астана",district:"р-н Алматы"},
-    {name:"Maqsut Narikbayev University",region:"г. Астана",district:"р-н Нура"},
-    {name:"«Орталық – Қазақстан Академиясы» ЧУ",region:"Карагандинская обл.",district:""},
-    {name:"Карагандинский университет Казпотребсоюза",region:"Карагандинская обл.",district:""}
+    {name:"«Орталық – Қазақстан Академиясы» ЧУ",region:"Карагандинская обл.",district:""}
   ]
 };
 /* Some not-yet-signed organizations already have a placeholder row in the
@@ -241,10 +239,9 @@ const SIGN_STATUS={
 /* Matched by row "№" id (col 0 of the sheet) rather than name text —
    Kazakh Cyrillic diacritics (ә/і/ғ/ұ/қ) make free-text matching between
    the Power BI screenshot and the sheet's spelling unreliable. IDs:
-   49 Карагандинский университет Казпотребсоюза · 60 Maqsut Narikbayev University ·
    64 КИМЭП Университеті · 66 Күләш Байсейітова атындағы ... өнер университеті ·
    89 «Орталық – Қазақстан Академиясы» · 102 Де Монтфорт университеті */
-const NOT_SIGNED_IDS=new Set([49,60,64,66,89,102]);
+const NOT_SIGNED_IDS=new Set([64,66,89,102]);
 function isNotSigned(row){return NOT_SIGNED_IDS.has(row.id);}
 
 /* ---------- i18n ---------- */
