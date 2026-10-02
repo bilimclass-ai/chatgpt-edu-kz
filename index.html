@@ -208,41 +208,43 @@ const POWERBI_URL="https://app.powerbi.com/view?r=eyJrIjoiNjM4OWUyZDQtMWUxNy00Nj
 /* Dashboard_Data tab: auto-refreshed from Power BI by the sheet's script
    (daily + every 6h). No contact data. Falls back to the published CSV. */
 const ENDPOINTS=[
-  `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=1969320767`,
+  `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&headers=1&gid=1969320767`,
   PUBLISHED_CSV];
 /* Refresh_Info tab: official Power BI refresh date, updated automatically */
-const META_CSV=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=433329528`;
+const META_CSV=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&headers=0&gid=433329528&range=A3:B3`;
 
-/* ------------------------------------------------------------
-   Agreement (joining-contract) status — pulled manually from
-   page 1 of the Power BI report ("Организации, которые
-   подписали / не подписали договор присоединения"), since this
-   breakdown is not yet part of the published Google Sheet feed.
-   Update this block whenever the Power BI numbers change, or
-   better: add a live-synced tab to the sheet and wire ENDPOINT
-   fetching in here the same way the license data works.
-   ------------------------------------------------------------ */
-const SIGN_STATUS={
-  asOf:"02.09.2026",
-  signed:101,
-  notSigned:[
-    {name:"Де Монтфорт университеті",region:"г. Алматы",district:"Медеуский р-н"},
-    {name:"КИМЭП Университеті",region:"г. Алматы",district:"Медеуский р-н"},
-    {name:"Күләш Байсейітова атындағы Қазақ ұлттық өнер университеті",region:"г. Астана",district:"р-н Алматы"},
-    {name:"«Орталық – Қазақстан Академиясы» ЧУ",region:"Карагандинская обл.",district:""}
-  ]
-};
-/* Some not-yet-signed organizations already have a placeholder row in the
-   license sheet (0% activation), which would otherwise put them on the
-   "needs attention" chart even though they haven't joined the project yet.
-   Filter them out of that chart using distinctive keyword matches. */
-/* Matched by row "№" id (col 0 of the sheet) rather than name text —
-   Kazakh Cyrillic diacritics (ә/і/ғ/ұ/қ) make free-text matching between
-   the Power BI screenshot and the sheet's spelling unreliable. IDs:
-   64 КИМЭП Университеті · 66 Күләш Байсейітова атындағы ... өнер университеті ·
-   89 «Орталық – Қазақстан Академиясы» · 102 Де Монтфорт университеті */
-const NOT_SIGNED_IDS=new Set([64,66,89,102]);
-function isNotSigned(row){return NOT_SIGNED_IDS.has(row.id);}
+// Participation comes from the contact-free Participants register.
+const PARTICIPANTS_CSV=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&headers=1&gid=22092601`;
+const NEW_PARTICIPANTS=[{"id":106,"name":"«CARDIFF UNIVERSITY KAZAKHSTAN» шетелдік оқу орны» жауапкершілігі шектеулі серіктестігі","region":"г.Астана","district":"","licenses":39,"basis":"Requested","cohort":"September 2026","agreement":"Signed","added":null,"started":null,"activated":null,"pct":null},{"id":107,"name":"«University of Innovation and Technology» шетелдік оқу орны» жауапкершілігі шектеулі серіктестігі","region":"г.Алматы","district":"","licenses":44,"basis":"Requested","cohort":"September 2026","agreement":"Signed","added":null,"started":null,"activated":null,"pct":null},{"id":108,"name":"«Qazaq AI Research University» жауапкершілігі шектеулі серіктестігі","region":"г.Астана","district":"","licenses":108,"basis":"Requested","cohort":"September 2026","agreement":"Signed","added":null,"started":null,"activated":null,"pct":null},{"id":109,"name":"\"Университет Ұлытау\" КОММЕРЦИЯЛЫҚ ЕМЕС АКЦИОНЕРЛІК ҚОҒАМЫ","region":"область Ұлытау","district":"Жезказган Г.А.","licenses":25,"basis":"Requested","cohort":"September 2026","agreement":"Not signed","added":null,"started":null,"activated":null,"pct":null}];
+let SIGN_STATUS={asOf:"22.09.2026",signed:108,notSigned:[NEW_PARTICIPANTS[3]]};
+let participantFeedOK=false;
+function isNotSigned(row){return row.agreement==="Not signed";}
+function pctText(value,digits=1){return value==null?"—":value.toFixed(digits)+"%";}
+function stateText(row){return isNotSigned(row)?T[LANG].notSignedLbl:row.pct==null?T[LANG].awaiting:T[LANG].st[statusOf(row.pct)];}
+async function applyParticipants(){
+  let participants=NEW_PARTICIPANTS;
+  participantFeedOK=false;
+  try{
+    const res=await fetch(PARTICIPANTS_CSV,{cache:"no-store"});
+    if(!res.ok)throw new Error("Participant feed unavailable");
+    const rows=parseCSV(await res.text());
+    const parsed=rows.filter(c=>/^\d+$/.test(c[0]||"")).map(c=>({id:+c[0],name:c[1],region:c[2],district:c[3],licenses:num(c[4]),agreement:c[7],basis:c[9],added:c[10]===""||c[10]==null?null:num(c[10]),addedDate:c[11]||"",cohort:c[12]||""}));
+    if(!parsed.length)throw new Error("Empty participant register");
+    participants=parsed;participantFeedOK=true;
+  }catch(e){ console.warn("Using participation snapshot dated 2026-09-22"); }
+  // The confirmed roster persists even before a university appears in Power BI.
+  participants.forEach(p=>{
+    let row=DATA.find(r=>r.id===p.id);
+    if(!row){row={...p,started:null,activated:null,pct:null};DATA.push(row);}
+    Object.assign(row,p);
+    row.pct=row.activated==null?null:(row.licenses?row.activated/row.licenses*100:0);
+  });
+  DATA.forEach(r=>{if(!r.agreement)r.agreement="Signed";if(!r.basis)r.basis="Existing allocation";});
+  DATA.sort((a,b)=>(b.pct??-1)-(a.pct??-1));
+  let rank=0;DATA.forEach(r=>r.rank=r.pct==null?null:++rank);
+  SIGN_STATUS.signed=DATA.filter(r=>r.agreement==="Signed").length;
+  SIGN_STATUS.notSigned=DATA.filter(isNotSigned);
+}
 
 /* ---------- i18n ---------- */
 const T={
@@ -275,7 +277,8 @@ const T={
     snapNote:"по данным Power BI на",
     signedLbl:"Подписали договор",
     notSignedLbl:"Ещё не подписали",
-    notSignedListTitle:"Пока не подписали:"
+    notSignedListTitle:"Пока не подписали:",
+    awaiting:"Ожидаются данные",newTitle:"Новые участники · сентябрь 2026",newHint:"Запрошенные лицензии учитываются отдельно от выделенных. «—» означает, что данные ещё не подтверждены.",requested:"Запрошено",added:"Добавлено пользователей",agreement:"Договор",target:"Общий план",snapshot:"Статус договоров: резервная копия от 22.09.2026; не удалось загрузить реестр."
   },
   kz:{
     title:"ChatGPT Edu — Қазақстан ЖОО-ларында",
@@ -302,11 +305,12 @@ const T={
     errTitle:"Деректерді жүктеу мүмкін болмады.",
     errBody:"Дереккөз кестесі интернетте жарияланғанын тексеріңіз (<b>Файл → Интернетте жариялау → CSV</b>) және сілтеме беттің кодындағы <code>PUBLISHED_CSV</code> өрісінде тұрғанына көз жеткізіңіз.",
     signTitle:"Қосылу шартына қол қою мәртебесі",
-    signHint:"ChatGPT Edu жобасына әлі ресми қосылмаған ұйымдар.",
+    signHint:"ChatGPT Edu жобасына қатысатын ұйымдар.",
     snapNote:"Power BI деректері бойынша",
     signedLbl:"Шартқа қол қойды",
     notSignedLbl:"Әлі қол қойған жоқ",
-    notSignedListTitle:"Әлі қол қоймағандар:"
+    notSignedListTitle:"Әлі қол қоймағандар:",
+    awaiting:"Деректер күтілуде",newTitle:"Жаңа қатысушылар · қыркүйек 2026",newHint:"Сұратылған лицензиялар бөлінген лицензиялардан бөлек есептеледі. «—» — деректер әлі расталмаған.",requested:"Сұратылды",added:"Қосылған пайдаланушылар",agreement:"Шарт",target:"Жалпы жоспар",snapshot:"Шарт мәртебесі: 22.09.2026 күнгі көшірме; тізілім жүктелмеді."
   }
 };
 const REG={
@@ -354,6 +358,7 @@ function cleanName(s){
    /Білім беру мекемесі/gi,
    /Жеке Меншік Мекемесі/gi,
    /жеке мекемесі/gi,
+   /жауапкершілігі шектеулі серіктестігі/gi,
    /шетелдік оқу орны»?/gi
   ].forEach(re=>n=n.replace(re," "));
   n=n.split(/\s+/).filter(w=>{
@@ -383,36 +388,40 @@ function num(s){if(s==null)return 0;const v=parseFloat(String(s).replace(/[^0-9.
 function buildRows(cells2d){
   const rows=[];dataDate=null;
   /* detect column positions from the header row; fall back to legacy layout */
-  let iLic=4,iStart=7,iAct=8;
+  let iLic=4,iStart=7,iAct=8,iData=-1;
   const hdr=cells2d.find(c=>c&&c.some(x=>/started|бастады/i.test(x||""))&&c.some(x=>/activated|белсенд/i.test(x||"")));
   if(hdr){
     const f=(re,d)=>{const i=hdr.findIndex(x=>re.test(x||""));return i<0?d:i;};
-    iLic=f(/лицензия|license/i,4);iStart=f(/started|бастады/i,7);iAct=f(/activated|белсенд/i,8);
+    iLic=f(/лицензия|license/i,4);iStart=f(/started|бастады/i,7);iAct=f(/activated|белсенд/i,8);iData=f(/^data status$/i,-1);
   }
   const need=Math.max(iLic,iStart,iAct)+1;
   cells2d.forEach(c=>{
     if(!c||!c.length)return;
     const first=(c[0]||"").trim();
     if(/обновлен|updated|жаңартыл/i.test(first)&&c[1]){dataDate=(c[1]||"").trim();return;}
-    if(c.length<need)return;
+    if(c.length<5)return;
     if(!/^\d+$/.test(first))return;           // skip header + totals + blanks
-    const licenses=num(c[iLic]),started=num(c[iStart]),activated=num(c[iAct]);
+    const licenses=num(c[iLic]);
+    const missing=(iData>=0&&c[iData]==="Awaiting data");
+    const started=missing||c[iStart]==null||c[iStart]===""?null:num(c[iStart]);
+    const activated=missing||c[iAct]==null||c[iAct]===""?null:num(c[iAct]);
     if(licenses<=0)return;
     /* NOTE: contact names / phone numbers / notes are intentionally NOT read */
     rows.push({id:+first,name:(c[1]||"—").trim(),region:(c[2]||"").trim(),district:(c[3]||"").trim(),
       licenses,started,activated,
-      pct:licenses>0?activated/licenses*100:0});
+      pct:activated==null?null:(licenses>0?activated/licenses*100:0)});
   });
   rows.sort((a,b)=>b.pct-a.pct);
   rows.forEach((r,i)=>r.rank=i+1);
   return rows;
 }
 function computeNational(){
-  const lic=DATA.reduce((s,r)=>s+r.licenses,0);
-  const act=DATA.reduce((s,r)=>s+r.activated,0);
+  const allocated=DATA.filter(r=>r.basis!=="Requested");
+  const lic=allocated.reduce((s,r)=>s+r.licenses,0);
+  const act=allocated.reduce((s,r)=>s+(r.activated||0),0);
   const st=DATA.reduce((s,r)=>s+r.started,0);
   const avg=DATA.length?DATA.reduce((s,r)=>s+r.pct,0)/DATA.length:0;
-  NAT={lic,act,started:st,pctWeighted:lic>0?act/lic*100:0,pctAvg:avg};
+  NAT={lic,act,started:st,pctWeighted:lic>0?act/lic*100:0,pctAvg:avg,requested:DATA.filter(r=>r.basis==="Requested").reduce((s,r)=>s+r.licenses,0)};
 }
 
 /* ---------- data load ---------- */
@@ -430,7 +439,8 @@ async function loadData(silent){
   if(btn)btn.textContent="⟳";
   if(!text){ showError(lastErr); return; }
   DATA=buildRows(parseCSV(text));
-  DISPLAY=DATA.filter(r=>!isNotSigned(r));
+  await applyParticipants();
+  DISPLAY=DATA;
   if(!DATA.length){ showError(new Error("No rows parsed")); return; }
   computeNational(); lastUpdated=new Date();
   await loadMeta();
@@ -447,7 +457,7 @@ async function loadMeta(){
       if(!r||!r.length)continue;
       const v=r.slice(1).find(x=>x&&x.trim());
       if(!v)continue;
-      if(/power\s*bi/i.test(r[0]||""))pbi=v.trim();
+      if(/^power\s*bi report last updated$/i.test((r[0]||"").trim()))pbi=v.trim();
       else if(/refresh|обновлен|жаңартыл/i.test(r[0]||""))refreshed=v.trim();
     }
     if(pbi||refreshed)dataDate=pbi||refreshed;
@@ -462,6 +472,7 @@ function showError(e){
 
 /* continuous traffic-light scale: 0% bright red → 50% olive/yellow → 100% neon green */
 function pctColor(p){
+  if(p==null)return "#8a94a3";
   p=Math.max(0,Math.min(100,p));
   const h=Math.round(p*1.25);                 // 0 → red, 62 → yellow, 125 → green
   return p>=99?"hsl(135,85%,42%)":`hsl(${h},72%,42%)`;
@@ -489,6 +500,12 @@ function timelineHTML(){
     <div class="tl-dates"><div><b>30.03.2026</b><br>${t.tlStart}</div><div style="text-align:right"><b>29.03.2027</b><br>${t.tlEnd}</div></div>
   </div>`;
 }
+
+function newParticipantsHTML(){
+ const t=T[LANG],rows=DATA.filter(r=>r.cohort==="September 2026");
+ return `<section class="card"><h2>${t.newTitle}</h2><p class="hint">${t.newHint}</p><div class="tablewrap"><table><thead><tr><th>${t.cName}</th><th>${t.requested}</th><th>${t.added}</th><th>${t.cStarted}</th><th>${t.cAct}</th><th>${t.cPct}</th><th>${t.agreement}</th></tr></thead><tbody>${rows.map(r=>`<tr><td class="name">${esc(cleanName(r.name))}</td><td class="num">${fmt(r.licenses)}</td><td class="num" title="${esc(r.addedDate||t.awaiting)}">${fmt(r.added)}</td><td class="num">${fmt(r.started)}</td><td class="num">${fmt(r.activated)}</td><td class="num">${pctText(r.pct)}</td><td>${isNotSigned(r)?t.notSignedLbl:t.signedLbl}</td></tr>`).join("")}</tbody></table></div></section>`;
+}
+
 function signKpiHTML(){
   const t=T[LANG];
   return `<div class="kpi k1 signkpi">
@@ -509,7 +526,7 @@ function notSignedTableHTML(){
     </table></div>
   </div>`;
 }
-const fmt=n=>n.toLocaleString(LANG==="kz"?"kk-KZ":"ru-RU");
+const fmt=n=>n==null?"—":n.toLocaleString(LANG==="kz"?"kk-KZ":"ru-RU");
 
 function setLang(l){LANG=l;document.querySelectorAll(".lang button").forEach(b=>b.classList.toggle("active",b.dataset.l===l));document.documentElement.lang=l==="kz"?"kk":"ru";headerText();if(DATA.length)render();}
 function headerText(){
@@ -526,10 +543,11 @@ function render(){
     ${timelineHTML()}
     <div class="kpis">
       ${signKpiHTML()}
-      <div class="kpi k2"><div class="val">${fmt(NAT.lic)}</div><div class="lab">${t.licenses}</div></div>
+      <div class="kpi k2"><div class="val">${fmt(NAT.lic)}</div><div class="lab">${t.licenses}</div><div class="sub">${t.requested}: ${fmt(NAT.requested)} · ${t.target}: ${fmt(NAT.lic+NAT.requested)}</div></div>
       <div class="kpi k3"><div class="val">${fmt(NAT.act)}</div><div class="lab">${t.activated}</div></div>
       <div class="kpi" style="border-top-color:${pctColor(NAT.pctWeighted)}"><div class="val" style="color:${pctColor(NAT.pctWeighted)}">${NAT.pctWeighted.toFixed(2)}%</div><div class="lab">${t.national}</div><div class="sub">${t.natSub}</div></div>
     </div>
+    ${newParticipantsHTML()}
     <div class="grid2">
       <div class="card"><h2>${t.topTitle}</h2><p class="hint">${t.topHint}</p><div class="chartbox tall"><canvas id="cTop"></canvas></div></div>
       <div class="card"><h2>${t.lowTitle}</h2><p class="hint">${t.lowHint}</p><div class="chartbox tall"><canvas id="cLow"></canvas></div></div>
@@ -547,12 +565,12 @@ function render(){
       <h2>${t.tableTitle}</h2>
       <div class="controls"><div class="search"><input id="q" type="text" placeholder="${t.searchPh}" value="${QVAL.replace(/"/g,'&quot;')}" oninput="drawTable()"></div></div>
       <div class="tablewrap"><table id="tbl"></table></div>
-      <div class="note">${t.liveNote}</div>
+      <div class="note">${t.liveNote}${participantFeedOK?"":"<br>"+t.snapshot}</div>
     </div>
     ${notSignedTableHTML()}`;
-  drawRankChart("cTop",DISPLAY.slice(0,10),"#1e9e63");
-  drawRankChart("cLow",DISPLAY.slice(-10),"#d64545");
-  drawSpot(SELID&&DISPLAY.some(x=>x.id==SELID)?SELID:DISPLAY[0].id);
+  drawRankChart("cTop",DISPLAY.filter(r=>!isNotSigned(r)&&r.pct!=null).slice(0,10),"#1e9e63");
+  drawRankChart("cLow",DISPLAY.filter(r=>!isNotSigned(r)&&r.pct!=null).slice(-10),"#d64545");
+  drawSpot(SELID&&DISPLAY.some(x=>x.id==SELID)?SELID:DISPLAY[0]?.id);
   drawTable();
   const up=lastUpdated?lastUpdated.toLocaleString(LANG==="kz"?"kk-KZ":"ru-RU"):"";
   document.getElementById("srcbar").innerHTML=`${t.loadedAt}: ${up} · <a href="${POWERBI_URL}" target="_blank" rel="noopener">${t.pbiLink}</a>`;
@@ -576,7 +594,7 @@ function comboFilter(){
     .filter(r=>!q||cleanName(r.name).toLowerCase().includes(q)||r.name.toLowerCase().includes(q))
     .slice(0,40);
   list.innerHTML=opts.length
-    ? opts.map(r=>`<div onclick="selectUni(${r.id})"><span class="pct" style="background:${pctColor(r.pct)};color:${pctInk(r.pct)}">${r.pct.toFixed(0)}%</span>${esc(cleanName(r.name))}</div>`).join("")
+    ? opts.map(r=>`<div onclick="selectUni(${r.id})"><span class="pct" style="background:${pctColor(r.pct)};color:${pctInk(r.pct)}">${pctText(r.pct,0)}</span>${esc(cleanName(r.name))}</div>`).join("")
     : `<div class="nores">${t.noMatch}</div>`;
   list.hidden=false;
 }
@@ -596,20 +614,20 @@ function drawSpot(id){
   const si=document.getElementById("spotSearch");if(si)si.value=cleanName(r.name);
   document.getElementById("spotOut").innerHTML=`
     <div class="spot">
-      <div class="spotcard s1"><div class="n">${fmt(r.licenses)}</div><div class="t">${t.sLic}</div></div>
+      <div class="spotcard s1"><div class="n">${fmt(r.licenses)}</div><div class="t">${r.basis==="Requested"?t.requested:t.sLic}</div></div>
       <div class="spotcard s2"><div class="n">${fmt(r.started)}</div><div class="t">${t.sStarted}</div></div>
       <div class="spotcard s3"><div class="n">${fmt(r.activated)}</div><div class="t">${t.sAct}</div></div>
-      <div class="spotcard" style="background:${pctColor(r.pct)};color:${pctInk(r.pct)}"><div class="n">${r.pct.toFixed(2)}%</div><div class="t">${t.sPct}</div></div>
+      <div class="spotcard" style="background:${pctColor(r.pct)};color:${pctInk(r.pct)}"><div class="n">${pctText(r.pct,2)}</div><div class="t">${t.sPct}</div></div>
     </div>
     <div class="hbars">
-      <div class="hbar"><span class="l">${t.bLic}</span><div class="track"><div class="fill" style="width:100%;background:var(--navy)"></div></div><span class="v">${fmt(r.licenses)} · 100%</span></div>
-      <div class="hbar"><span class="l">${t.bStarted}</span><div class="track"><div class="fill" style="width:${Math.min(100,r.licenses?r.started/r.licenses*100:0).toFixed(2)}%;background:var(--accent)"></div></div><span class="v">${fmt(r.started)} · ${(r.licenses?r.started/r.licenses*100:0).toFixed(1)}%</span></div>
-      <div class="hbar"><span class="l">${t.bAct}</span><div class="track"><div class="fill" style="width:${Math.min(100,r.pct).toFixed(2)}%;background:${pctColor(r.pct)}"></div></div><span class="v">${fmt(r.activated)} · ${r.pct.toFixed(1)}%</span></div>
+      <div class="hbar"><span class="l">${r.basis==="Requested"?t.requested:t.bLic}</span><div class="track"><div class="fill" style="width:100%;background:var(--navy)"></div></div><span class="v">${fmt(r.licenses)} · 100%</span></div>
+      <div class="hbar"><span class="l">${t.bStarted}</span><div class="track"><div class="fill" style="width:${Math.min(100,r.licenses?r.started/r.licenses*100:0).toFixed(2)}%;background:var(--accent)"></div></div><span class="v">${fmt(r.started)} · ${r.started==null?"—":pctText(r.licenses?r.started/r.licenses*100:0)}</span></div>
+      <div class="hbar"><span class="l">${t.bAct}</span><div class="track"><div class="fill" style="width:${Math.min(100,r.pct).toFixed(2)}%;background:${pctColor(r.pct)}"></div></div><span class="v">${fmt(r.activated)} · ${pctText(r.pct,1)}</span></div>
       <div class="hbar"><span class="l">${t.bAvg}</span><div class="track"><div class="fill" style="width:${Math.min(100,NAT.pctWeighted).toFixed(2)}%;background:var(--neutral)"></div></div><span class="v">${NAT.pctWeighted.toFixed(2)}%</span></div>
     </div>
     <div class="spotmeta">
       <span><b>${esc(cleanName(r.name))}</b></span>
-      <span>${t.rank}: <b>#${r.rank}</b> ${t.of} ${DISPLAY.length}</span>
+      <span>${t.agreement}: <b>${isNotSigned(r)?t.notSignedLbl:t.signedLbl}</b> · <b>${stateText(r)}</b></span>
     </div>
     <div class="spotmeta">
       <span>${t.region}: <b>${esc(regName(r.region,LANG))}</b></span>
@@ -626,14 +644,14 @@ function drawTable(){
   const th=(k,lab,cls="")=>`<th class="${cls}" onclick="setSort('${k}')">${lab}${arrow(k)}</th>`;
   let h=`<thead><tr>${th("rank",t.cRank)}${th("name",t.cName)}${th("region",t.cRegion)}${th("licenses",t.cLic,"num")}${th("started",t.cStarted,"num")}${th("activated",t.cAct,"num")}${th("pct",t.cPct,"num")}${th("status",t.cStatus)}</tr></thead><tbody>`;
   rows.forEach(r=>{
-    const s=statusOf(r.pct),sc=STATUS_COLORS[s];
+    const s=statusOf(r.pct),sc=r.pct==null||isNotSigned(r)?"#8a94a3":STATUS_COLORS[s];
     h+=`<tr>
-    <td class="num">${r.rank}</td>
+    <td class="num">${r.rank??"—"}</td>
     <td class="name">${esc(cleanName(r.name))}</td>
     <td class="reg">${esc(regName(r.region,LANG))}</td>
     <td class="num">${fmt(r.licenses)}</td><td class="num">${fmt(r.started)}</td><td class="num">${fmt(r.activated)}</td>
-    <td class="num"><div class="pcell"><span class="pv" style="color:${pctColor(r.pct)}">${r.pct.toFixed(1)}%</span><span class="ptrack"><span class="pfill" style="width:${Math.min(100,r.pct).toFixed(1)}%;background:${pctColor(r.pct)}"></span></span></div></td>
-    <td><span class="statchip"><i style="background:${sc}"></i>${t.st[s]}</span></td></tr>`;});
+    <td class="num"><div class="pcell"><span class="pv" style="color:${pctColor(r.pct)}">${pctText(r.pct,1)}</span><span class="ptrack"><span class="pfill" style="width:${Math.min(100,r.pct).toFixed(1)}%;background:${pctColor(r.pct)}"></span></span></div></td>
+    <td><span class="statchip"><i style="background:${sc}"></i>${stateText(r)}</span></td></tr>`;});
   h+="</tbody>";document.getElementById("tbl").innerHTML=h;
 }
 function setSort(k){if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=(k==="name"||k==="region")?1:-1;}drawTable();}
