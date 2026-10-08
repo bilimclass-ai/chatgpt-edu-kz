@@ -554,7 +554,6 @@ function render(){
       <div class="kpi k3"><div class="val">${fmt(NAT.act)}</div><div class="lab">${t.activated}</div></div>
       <div class="kpi" style="border-top-color:${pctColor(NAT.pctWeighted)}"><div class="val" style="color:${pctColor(NAT.pctWeighted)}">${NAT.pctWeighted.toFixed(2)}%</div><div class="lab">${t.national}</div><div class="sub">${t.natSub}</div></div>
     </div>
-    ${newParticipantsHTML()}
     <div class="grid2">
       <div class="card"><h2>${t.topTitle}</h2><p class="hint">${t.topHint}</p><div class="chartbox tall"><canvas id="cTop"></canvas></div></div>
       <div class="card"><h2>${t.lowTitle}</h2><p class="hint">${t.lowHint}</p><div class="chartbox tall"><canvas id="cLow"></canvas></div></div>
@@ -574,6 +573,7 @@ function render(){
       <div class="tablewrap"><table id="tbl"></table></div>
       <div class="note">${t.liveNote}${participantFeedOK?"":"<br>"+t.snapshot}</div>
     </div>
+    ${newParticipantsHTML()}
     ${notSignedTableHTML()}`;
   drawRankChart("cTop",DISPLAY.filter(r=>!isNotSigned(r)&&r.pct!=null).slice(0,10),"#1e9e63");
   drawRankChart("cLow",DISPLAY.filter(r=>!isNotSigned(r)&&r.pct!=null).slice(-10),"#d64545");
