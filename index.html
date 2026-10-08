@@ -215,10 +215,17 @@ const META_CSV=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=o
 
 // Participation comes from the contact-free Participants register.
 const PARTICIPANTS_CSV=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&headers=1&gid=22092601`;
-const NEW_PARTICIPANTS=[{"id":106,"name":"«CARDIFF UNIVERSITY KAZAKHSTAN» шетелдік оқу орны» жауапкершілігі шектеулі серіктестігі","region":"г.Астана","district":"","licenses":39,"basis":"Requested","cohort":"September 2026","agreement":"Signed","added":null,"started":null,"activated":null,"pct":null},{"id":107,"name":"«University of Innovation and Technology» шетелдік оқу орны» жауапкершілігі шектеулі серіктестігі","region":"г.Алматы","district":"","licenses":44,"basis":"Requested","cohort":"September 2026","agreement":"Signed","added":null,"started":null,"activated":null,"pct":null},{"id":108,"name":"«Qazaq AI Research University» жауапкершілігі шектеулі серіктестігі","region":"г.Астана","district":"","licenses":108,"basis":"Requested","cohort":"September 2026","agreement":"Signed","added":null,"started":null,"activated":null,"pct":null},{"id":109,"name":"\"Университет Ұлытау\" КОММЕРЦИЯЛЫҚ ЕМЕС АКЦИОНЕРЛІК ҚОҒАМЫ","region":"область Ұлытау","district":"Жезказган Г.А.","licenses":25,"basis":"Requested","cohort":"September 2026","agreement":"Not signed","added":null,"started":null,"activated":null,"pct":null}];
-let SIGN_STATUS={asOf:"22.09.2026",signed:108,notSigned:[NEW_PARTICIPANTS[3]]};
+const NEW_PARTICIPANTS=[{"id":106,"name":"«CARDIFF UNIVERSITY KAZAKHSTAN» шетелдік оқу орны» жауапкершілігі шектеулі серіктестігі","region":"г.Астана","district":"","licenses":39,"basis":"Requested","cohort":"September 2026","agreement":"Signed","added":null,"started":null,"activated":null,"pct":null},{"id":107,"name":"«University of Innovation and Technology» шетелдік оқу орны» жауапкершілігі шектеулі серіктестігі","region":"г.Алматы","district":"","licenses":44,"basis":"Requested","cohort":"September 2026","agreement":"Signed","added":null,"started":null,"activated":null,"pct":null},{"id":108,"name":"«Qazaq AI Research University» жауапкершілігі шектеулі серіктестігі","region":"г.Астана","district":"","licenses":108,"basis":"Requested","cohort":"September 2026","agreement":"Signed","added":null,"started":null,"activated":null,"pct":null},{"id":109,"name":"\"Университет Ұлытау\" КОММЕРЦИЯЛЫҚ ЕМЕС АКЦИОНЕРЛІК ҚОҒАМЫ","region":"область Ұлытау","district":"Жезказган Г.А.","licenses":25,"basis":"Requested","cohort":"September 2026","agreement":"Signed","added":null,"started":null,"activated":null,"pct":null}];
+// Agreement status confirmed in Power BI on 08.10.2026.
+const NOT_SIGNED_IDS=new Set([64,66,102]);
+const AGREEMENT_SNAPSHOT=[
+  {id:102,name:"Де Монтфорт университеті",region:"г. Алматы",district:"Медеуский р-н"},
+  {id:64,name:"КИМЭП Университеті",region:"г. Алматы",district:"Медеуский р-н"},
+  {id:66,name:"Күләш Байсейітова атындағы Қазақ ұлттық өнер университеті",region:"г. Астана",district:"р-н Алматы"}
+];
+let SIGN_STATUS={asOf:"08.10.2026",signed:106,notSigned:AGREEMENT_SNAPSHOT};
 let participantFeedOK=false;
-function isNotSigned(row){return row.agreement==="Not signed";}
+function isNotSigned(row){return NOT_SIGNED_IDS.has(row.id);}
 function pctText(value,digits=1){return value==null?"—":value.toFixed(digits)+"%";}
 function stateText(row){return isNotSigned(row)?T[LANG].notSignedLbl:row.pct==null?T[LANG].awaiting:T[LANG].st[statusOf(row.pct)];}
 async function applyParticipants(){
@@ -228,7 +235,7 @@ async function applyParticipants(){
     const res=await fetch(PARTICIPANTS_CSV,{cache:"no-store"});
     if(!res.ok)throw new Error("Participant feed unavailable");
     const rows=parseCSV(await res.text());
-    const parsed=rows.filter(c=>/^\d+$/.test(c[0]||"")).map(c=>({id:+c[0],name:c[1],region:c[2],district:c[3],licenses:num(c[4]),agreement:c[7],basis:c[9],added:c[10]===""||c[10]==null?null:num(c[10]),addedDate:c[11]||"",cohort:c[12]||""}));
+    const parsed=rows.filter(c=>/^\d+$/.test(c[0]||"")).map(c=>({id:+c[0],name:c[1],region:c[2],district:c[3],licenses:num(c[4]),basis:c[9],added:c[10]===""||c[10]==null?null:num(c[10]),addedDate:c[11]||"",cohort:c[12]||""}));
     if(!parsed.length)throw new Error("Empty participant register");
     participants=parsed;participantFeedOK=true;
   }catch(e){ console.warn("Using participation snapshot dated 2026-09-22"); }
@@ -239,11 +246,11 @@ async function applyParticipants(){
     Object.assign(row,p);
     row.pct=row.activated==null?null:(row.licenses?row.activated/row.licenses*100:0);
   });
-  DATA.forEach(r=>{if(!r.agreement)r.agreement="Signed";if(!r.basis)r.basis="Existing allocation";});
+  DATA.forEach(r=>{r.agreement=isNotSigned(r)?"Not signed":"Signed";if(!r.basis)r.basis="Existing allocation";});
   DATA.sort((a,b)=>(b.pct??-1)-(a.pct??-1));
   let rank=0;DATA.forEach(r=>r.rank=r.pct==null?null:++rank);
-  SIGN_STATUS.signed=DATA.filter(r=>r.agreement==="Signed").length;
   SIGN_STATUS.notSigned=DATA.filter(isNotSigned);
+  SIGN_STATUS.signed=DATA.length-SIGN_STATUS.notSigned.length;
 }
 
 /* ---------- i18n ---------- */
